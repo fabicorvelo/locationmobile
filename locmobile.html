@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreamento de Rua em Tempo Real</title>
+</head>
+<body>
+    <h1>Minha Rua Atual</h1>
+    <p id="status">Clique no botão para iniciar o rastreamento da sua rua...</p>
+    <p id="currentStreet">Rua: </p>
+    <button id="startTracking">Iniciar Rastreamento</button>
+
+    <script>
+        const statusElement = document.getElementById('status');
+        const streetElement = document.getElementById('currentStreet');
+        const startButton = document.getElementById('startTracking');
+        let watchId;
+
+        const getStreetName = async (latitude, longitude) => {
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+                );
+                const data = await response.json();
+
+                if (data && data.address && data.address.road) {
+                    const road = data.address.road;
+                    const city = data.address.city || data.address.town || data.address.village || "Desconhecida";
+                    streetElement.textContent = `Rua: ${road}, Cidade: ${city}`;
+                } else {
+                    streetElement.textContent = 'Não foi possível determinar a rua.';
+                }
+            } catch (error) {
+                console.error('Erro ao buscar o nome da rua:', error);
+                streetElement.textContent = 'Erro ao buscar a rua.';
+            }
+        };
+
+        const startTracking = () => {
+            if (!navigator.geolocation) {
+                statusElement.textContent = 'Geolocalização não é suportada pelo seu navegador.';
+                return;
+            }
+
+            // Inicia o rastreamento em tempo real com watchPosition
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+
+                    // Exibe as coordenadas na tela para monitoramento
+                    statusElement.textContent = `Latitude: ${latitude.toFixed(6)}, Longitude: ${longitude.toFixed(6)}`;
+
+                    // Atualiza o nome da rua
+                    getStreetName(latitude, longitude); 
+                },
+                (error) => {
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            statusElement.textContent = 'Permissão negada para acessar a localização.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            statusElement.textContent = 'Localização indisponível.';
+                            break;
+                        case error.TIMEOUT:
+                            statusElement.textContent = 'Tempo para obter a localização esgotado.';
+                            break;
+                        default:
+                            statusElement.textContent = 'Erro desconhecido ao acessar a localização.';
+                            break;
+                    }
+                },
+                {
+                    enableHighAccuracy: true,   // Maior precisão de localização
+                    maximumAge: 0,             // Não usa dados de localização antigos
+                    timeout: 10000             // Espera até 10 segundos para obter uma localização
+                }
+            );
+
+            startButton.disabled = true; // Desabilita o botão após iniciar o rastreamento
+        };
+
+        startButton.addEventListener('click', startTracking);
+    </script>
+</body>
+</html>
